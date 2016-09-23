@@ -1,0 +1,489 @@
+---
+title: "ProjectFinal"
+author: "Pratik"
+date: "May 6, 2016"
+output: html_document
+---
+
+```{r}
+
+library(openxlsx)
+library(XLConnect)
+library(som)
+library(class)
+library(caret)
+library(e1071)
+library(plyr)
+library(class)
+library(sqldf)
+
+#School Grades. It is a typical classification problem. Schools are graded on the same scale as students – A, B, C, D or F.
+#School Grades: based on Parent's Feedback:
+
+#Summary tab
+#School Grades: based on Teacher's qualification and Feedback:
+teacherSummDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=1)
+colnames(teacherSummDF) = teacherSummDF[1, ]
+teacherSummDF = teacherSummDF[-1, c(2,6,21,37)]
+```
+```{r}
+teacherSummDF[teacherSummDF$`Quality Review - How well do teachers work with each other?` == "Developing",]$`Quality Review - How well do teachers work with each other?` = 5
+teacherSummDF[teacherSummDF$`Quality Review - How well do teachers work with each other?` == "Well Developed",]$`Quality Review - How well do teachers work with each other?` = 7.5
+teacherSummDF[teacherSummDF$`Quality Review - How well do teachers work with each other?` == "Proficient",]$`Quality Review - How well do teachers work with each other?` = 10
+teacherSummDF$`Quality Review - How well do teachers work with each other?` <- as.numeric(teacherSummDF$`Quality Review - How well do teachers work with each other?`)
+
+
+teacherSummDF[teacherSummDF$`Collaborative Teachers Rating` == "Not Meeting Target",]$`Collaborative Teachers Rating` = 2.5
+teacherSummDF[teacherSummDF$`Collaborative Teachers Rating` == "Approaching Target",]$`Collaborative Teachers Rating` = 5
+teacherSummDF[teacherSummDF$`Collaborative Teachers Rating` == "Meeting Target",]$`Collaborative Teachers Rating` = 7.5
+teacherSummDF[teacherSummDF$`Collaborative Teachers Rating` == "Exceeding Target",]$`Collaborative Teachers Rating` = 10
+teacherSummDF[teacherSummDF$`Collaborative Teachers Rating` == "N/A",]$`Collaborative Teachers Rating` = 0
+teacherSummDF$`Collaborative Teachers Rating` <- as.numeric(teacherSummDF$`Collaborative Teachers Rating`)
+
+teacherSummDF$`Percent of teachers with 3 or more years of experience` <- as.numeric(teacherSummDF$`Percent of teachers with 3 or more years of experience`)
+teacherSummDF$`Percent of teachers with 3 or more years of experience` * 10 -> teacherSummDF$`Percent of teachers with 3 or more years of experience`
+
+#Survey tab
+teacherSurveyDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=7)
+colnames(teacherSurveyDF) = teacherSurveyDF[1, ]
+teacherSurveyDF = teacherSurveyDF[-1, c(2,59,70,82,83)]
+teacherSurveyDF$`School commitment - Teachers - Survey % Positive` <- as.numeric(teacherSurveyDF$`School commitment - Teachers - Survey % Positive`)
+teacherSurveyDF$`School commitment - Teachers - Survey % Positive` * 0.1 -> teacherSurveyDF$`School commitment - Teachers - Survey % Positive`
+
+teacherSurveyDF$`Focus on student learning - Teachers - Survey % Positive` <- as.numeric(teacherSurveyDF$`Focus on student learning - Teachers - Survey % Positive`)
+teacherSurveyDF$`Focus on student learning - Teachers - Survey % Positive` * 0.1 -> teacherSurveyDF$`Focus on student learning - Teachers - Survey % Positive`
+
+teacherSurveyDF$`Innovation - Teachers - Score` <- as.numeric(teacherSurveyDF$`Innovation - Teachers - Score`)
+teacherSurveyDF$`Innovation - Teachers - Score` * 2 -> teacherSurveyDF$`Innovation - Teachers - Score`
+
+teacherSurveyDF$`Peer collaboration - Teachers - Score` <- as.numeric(teacherSurveyDF$`Peer collaboration - Teachers - Score`)
+teacherSurveyDF$`Peer collaboration - Teachers - Score` * 2 -> teacherSurveyDF$`Peer collaboration - Teachers - Score`
+
+
+#merged.data <- merge(merged.data, frameDF, by="School Name")
+t.merged.data<- cbind(teacherSummDF,teacherSurveyDF[,c(-1)])
+View(t.merged.data)
+t.merged.data[is.na(t.merged.data)] <- 0
+t.merged.data$sum=t.merged.data$`Collaborative Teachers Rating`+t.merged.data$`Quality Review - How well do teachers work with each other?`+t.merged.data$`Percent of teachers with 3 or more years of experience`+t.merged.data$`School commitment - Teachers - Survey % Positive`+t.merged.data$`Innovation - Teachers - Score`+t.merged.data$`Peer collaboration - Teachers - Score`+t.merged.data$`Focus on student learning - Teachers - Survey % Positive`
+
+t_sorteddata<-arrange(t.merged.data, desc(sum))
+t_sorteddata<-t_sorteddata[1:20,]
+View(t_sorteddata)
+
+#-----------------------------------------------------------------------------------------------
+#School Grades: based on Parent's Feedback
+Parentsummdf = read.xlsx("C:/Users/akank/Desktop/data.xlsx",sheet = "Summary",startRow = 1)
+colnames(Parentsummdf) = Parentsummdf[1, ]
+Parentsummdf = Parentsummdf[-1, c(2,10,17,19,20)]
+
+
+Parentsummdf[Parentsummdf$`Trust Rating` == "Not Meeting Target",]$`Trust Rating` = 2.5
+Parentsummdf[Parentsummdf$`Trust Rating` == "Approaching Target",]$`Trust Rating` = 5
+Parentsummdf[Parentsummdf$`Trust Rating` == "Meeting Target",]$`Trust Rating` = 7.5
+Parentsummdf[Parentsummdf$`Trust Rating` == "Exceeding Target",]$`Trust Rating` =  10
+Parentsummdf$`Trust Rating` <- as.numeric(Parentsummdf$`Trust Rating`)
+
+
+Parentsummdf[Parentsummdf$`Quality Review - How well does the school assess what students are learning?` =="Developing",]$`Quality Review - How well does the school assess what students are learning?` = 5
+Parentsummdf[Parentsummdf$`Quality Review - How well does the school assess what students are learning?` =="Well Developed",]$`Quality Review - How well does the school assess what students are learning?` = 7.5
+Parentsummdf[Parentsummdf$`Quality Review - How well does the school assess what students are learning?` =="Proficient",]$`Quality Review - How well does the school assess what students are learning?` = 10
+Parentsummdf$`Quality Review - How well does the school assess what students are learning?` <- as.numeric(Parentsummdf$`Quality Review - How well does the school assess what students are learning?`)
+
+Parentsummdf[Parentsummdf$`Quality Review - How effective is the teaching and learning?` =="Developing",]$`Quality Review - How effective is the teaching and learning?` = 5
+Parentsummdf[Parentsummdf$`Quality Review - How effective is the teaching and learning?` =="Well Developed",]$`Quality Review - How effective is the teaching and learning?` = 7.5
+Parentsummdf[Parentsummdf$`Quality Review - How effective is the teaching and learning?` =="Proficient",]$`Quality Review - How effective is the teaching and learning?` = 10
+Parentsummdf$`Quality Review - How effective is the teaching and learning?` <- as.numeric(Parentsummdf$`Quality Review - How effective is the teaching and learning?`)
+
+Parentsummdf$`Trust - Percent Positive` <- as.numeric(Parentsummdf$`Trust - Percent Positive`)
+Parentsummdf$`Trust - Percent Positive` * 10 -> Parentsummdf$`Trust - Percent Positive`
+
+
+Parentframedf = read.xlsx("C:/Users/akank/Desktop/data.xlsx",sheet = "Framework",startRow = 1)
+colnames(Parentframedf) = Parentframedf[1, ]
+Parentframedf = Parentframedf[-1, c(2,66)]
+
+Parentframedf$`Percentage of parents who say that school staff regularly communicate with them about how the staff can help their children learn` <- as.numeric(Parentframedf$`Percentage of parents who say that school staff regularly communicate with them about how the staff can help their children learn`)
+(Parentframedf$`Percentage of parents who say that school staff regularly communicate with them about how the staff can help their children learn`)*10 -> Parentframedf$`Percentage of parents who say that school staff regularly communicate with them about how the staff can help their children learn`
+parent_merge =cbind(Parentsummdf,Parentframedf[,c(-1)])
+View(parent_merge)
+
+parent_merge[is.na(parent_merge)] <- 0
+parent_merge$sum <- parent_merge$`Trust Rating`+parent_merge$`Trust - Percent Positive`+parent_merge$`Quality Review - How effective is the teaching and learning?`+parent_merge$`Quality Review - How well does the school assess what students are learning?`+parent_merge$`Parentframedf[, c(-1)]`
+p_sorteddata<-arrange(parent_merge, desc(sum))
+p_sorteddata<-p_sorteddata[1:20,]
+View(p_sorteddata)
+
+
+
+#School Grades: based on Student performance and Feedback
+#summary tab------------------------------------------------------------------------------------
+summDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=1)
+View(summDF)
+colnames(summDF) = summDF[1, ]
+summDF = summDF[-1, c(2,4,7,10,11)]
+
+
+#Student Achievement Rating
+summDF[summDF$`Student Achievement Rating` == "Not Meeting Target",]$`Student Achievement Rating` = 2.5
+summDF[summDF$`Student Achievement Rating` == "Approaching Target",]$`Student Achievement Rating` = 5
+summDF[summDF$`Student Achievement Rating` == "Meeting Target",]$`Student Achievement Rating` = 7.5
+summDF[summDF$`Student Achievement Rating` == "Exceeding Target",]$`Student Achievement Rating` = 10
+summDF[summDF$`Student Achievement Rating` == "N/A",]$`Student Achievement Rating` = 0
+summDF$`Student Achievement Rating` <- as.numeric(summDF$`Student Achievement Rating`)
+
+#Supportive Environment Rating
+summDF[summDF$`Supportive Environment Rating` == "Not Meeting Target",]$`Supportive Environment Rating` = 2.5
+summDF[summDF$`Supportive Environment Rating` == "Approaching Target",]$`Supportive Environment Rating` = 5
+summDF[summDF$`Supportive Environment Rating` == "Meeting Target",]$`Supportive Environment Rating` = 7.5
+summDF[summDF$`Supportive Environment Rating` == "Exceeding Target",]$`Supportive Environment Rating` = 10
+summDF[summDF$`Supportive Environment Rating` == "N/A",]$`Supportive Environment Rating` = 0
+summDF$`Supportive Environment Rating` <- as.numeric(summDF$`Supportive Environment Rating`)
+
+#Trust Rating
+summDF[summDF$`Trust Rating` == "Not Meeting Target",]$`Trust Rating` = 2.5
+summDF[summDF$`Trust Rating` == "Approaching Target",]$`Trust Rating` = 5
+summDF[summDF$`Trust Rating` == "Meeting Target",]$`Trust Rating` = 7.5
+summDF[summDF$`Trust Rating` == "Exceeding Target",]$`Trust Rating` = 10
+summDF[summDF$`Trust Rating` == "N/A",]$`Trust Rating` = 0
+summDF$`Trust Rating` <- as.numeric(summDF$`Trust Rating`)
+summDF<-arrange(summDF, summDF$`School Name`)
+summDF[is.na(summDF)] <- 0
+#View(summDF)
+
+
+
+
+
+#Student Achievement tab--------------------------------------------------------------------------
+saDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=2)
+View(saDF)
+colnames(saDF) = saDF[1, ]
+saDF = saDF[-1, c(2,4,47,53,59,65,71)]
+colnames(saDF) = c("School Name","Achieve","Eng","Math","Sci","Glo_hist","US_hist")
+View(saDF)
+
+#Eng
+saDF[saDF$`Eng` == "Not Meeting Target",]$`Eng` = 2.5
+saDF[saDF$`Eng` == "Approaching Target",]$`Eng` = 5
+saDF[saDF$`Eng` == "Meeting Target",]$`Eng` = 7.5
+saDF[saDF$`Eng` == "Exceeding Target",]$`Eng` = 10
+saDF$`Eng` <- as.numeric(saDF$`Eng`)
+
+#Math
+saDF[saDF$`Math` == "Not Meeting Target",]$`Math` = 2.5
+saDF[saDF$`Math` == "Approaching Target",]$`Math` = 5
+saDF[saDF$`Math` == "Meeting Target",]$`Math` = 7.5
+saDF[saDF$`Math` == "Exceeding Target",]$`Math` = 10
+saDF$`Math` <- as.numeric(saDF$`Math`)
+
+#Sci
+saDF[saDF$`Sci` == "Not Meeting Target",]$`Sci` = 2.5
+saDF[saDF$`Sci` == "Approaching Target",]$`Sci` = 5
+saDF[saDF$`Sci` == "Meeting Target",]$`Sci` = 7.5
+saDF[saDF$`Sci` == "Exceeding Target",]$`Sci` = 10
+saDF$`Sci` <- as.numeric(saDF$`Sci`)
+
+#Glo_hist
+saDF[saDF$`Glo_hist` == "Not Meeting Target",]$`Glo_hist` = 2.5
+saDF[saDF$`Glo_hist` == "Approaching Target",]$`Glo_hist` = 5
+saDF[saDF$`Glo_hist` == "Meeting Target",]$`Glo_hist` = 7.5
+saDF[saDF$`Glo_hist` == "Exceeding Target",]$`Glo_hist` = 10
+saDF$`Glo_hist` <- as.numeric(saDF$`Glo_hist`)
+
+#US_hist
+saDF[saDF$`US_hist` == "Not Meeting Target",]$`US_hist` = 2.5
+saDF[saDF$`US_hist` == "Approaching Target",]$`US_hist` = 5
+saDF[saDF$`US_hist` == "Meeting Target",]$`US_hist` = 7.5
+saDF[saDF$`US_hist` == "Exceeding Target",]$`US_hist` = 10
+saDF$`US_hist` <- as.numeric(saDF$`US_hist`)
+saDF[is.na(saDF)] <- 0
+saDF<-arrange(saDF, saDF$`School Name`)
+#View(saDF)
+
+
+#Framework tab-----------------------------------------------------------------------------------
+frameDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=4)
+View(frameDF)
+colnames(frameDF) = frameDF[1, ]
+frameDF = frameDF[-1, c(2,11,29,35,37,85)]
+
+frameDF$`Percentage of students who say that they learn a lot from feedback on their work` <- as.numeric(frameDF$`Percentage of students who say that they learn a lot from feedback on their work`)
+frameDF$`Percentage of students who say that they learn a lot from feedback on their work` * 10 -> frameDF$`Percentage of students who say that they learn a lot from feedback on their work`
+
+frameDF$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria` <- as.numeric(frameDF$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria`)
+frameDF$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria` * 10 -> frameDF$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria`
+
+frameDF$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty` <- as.numeric(frameDF$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty`)
+frameDF$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty` * 10 -> frameDF$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty`
+
+frameDF$`Student Survey Response Rate` <- as.numeric(frameDF$`Student Survey Response Rate`)
+frameDF$`Student Survey Response Rate` * 10 -> frameDF$`Student Survey Response Rate`
+frameDF[is.na(frameDF)] <- 0
+frameDF<-arrange(frameDF, frameDF$`School Name`)
+#View(frameDF)
+
+#md<- merge(summDF, saDF, by="School Name")
+merged.data<- cbind(summDF,saDF[,c(2,3,4,5,6,7)], frameDF[,c(2,3,4,5,6)])
+View(merged.data)
+#merged.data <- merge(merged.data, frameDF, by="School Name")
+merged.data[is.na(merged.data)] <- 0
+View(merged.data)
+str(merged.data)
+merged.data$sum = merged.data$`Student Achievement Rating` + merged.data$`Supportive Environment Rating`+merged.data$Eng + 
+  merged.data$Math + 
+  merged.data$Sci + 
+  merged.data$Glo_hist +
+  merged.data$US_hist + 
+  merged.data$`Student Achievement Rating`+
+  merged.data$`Percentage of students who say that they learn a lot from feedback on their work`+
+  merged.data$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria`+
+  merged.data$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty`+
+  merged.data$`Student Survey Response Rate`
+View(merged.data)
+
+
+#Evaluation using knn. 
+#Ranking the schools based on Student performance and feedback.
+for(i in 1:nrow(merged.data)){
+  if(merged.data$sum[i]>96.0){
+    merged.data$grade[i]=1
+  }else if(merged.data$sum[i]<=96.0 & merged.data$sum[i]>72.0){
+    merged.data$grade[i]=2
+  }
+  else if(merged.data$sum[i]<=72.0 & merged.data$sum[i]>48.0){
+    merged.data$grade[i]=3
+  }
+  else if(merged.data$sum[i]<=48.0 & merged.data$sum[i]>24.0){
+    merged.data$grade[i]=4
+  }
+  else if(merged.data$sum[i]<=24.0){
+    merged.data$grade[i]=5
+  }
+}
+View(merged.data)
+#using the same features I have created the response vector
+m2<-lm(merged.data$grade~merged.data$`Student Achievement Rating` + merged.data$`Supportive Environment Rating`+merged.data$Eng + 
+  merged.data$Math + 
+  merged.data$Sci + 
+  merged.data$Glo_hist +
+  merged.data$US_hist + 
+  merged.data$`Percentage of students who say that they learn a lot from feedback on their work`+
+  merged.data$`Percentage of students who feel safe in the hallways, bathrooms, locker room, and cafeteria`+
+  merged.data$`Percentage of students who say that teachers notice when they are upset or having emotional difficulty`+
+  merged.data$`Student Survey Response Rate`)
+y=m2$model$'merged.data$grade'
+
+
+gd_norm<-as.data.frame(lapply(merged.data[,c(3,5,7,8,9,10,11,12,14,15,16)],normalize))
+View(gd_norm)
+dfcoll=data.frame(y)
+smp<-floor(0.60*nrow(gd_norm))
+set.seed(123)
+tr<-sample(seq_len(nrow(gd_norm)),size=smp)
+trdata<-gd_norm[tr,]
+trres<-dfcoll[tr,]
+tstdata<-gd_norm[-tr,]
+tstres<-dfcoll[-tr,]
+
+#I have fit a KNN model on the training set using K=5. When K=5, accuracy turned out to be 0.9238579
+
+trres<-(dfcoll[tr,])
+tstdata<-gd_norm[-tr,]
+tstres<-(dfcoll[-tr,])
+knn_req<-knn(tr=trdata,test=tstdata,cl=trres,k=5)
+table(tstres,knn_req)
+confusionMatrix(tstres,knn_req)
+Accuracyvector<-integer()
+knn_req<-knn(train=trdata,test=tstdata,cl=trres,k=20)
+GetAccuracy<-confusionMatrix(tstres,knn_req)
+print(GetAccuracy)
+Accuracyvector<-c(Accuracyvector,GetAccuracy$overall[1])
+Accuracyvector
+
+
+#Here I have computed the testing accuracy for a range of K values. When I plotted the testing accuracy against K values I found that the optimal value for K is 15 
+seq<-c(1,3,5,7,9,11,13,15,17)
+Accuracyvector1<-integer()
+for(val in seq){
+ knn_req<-knn(train=trdata,test=tstdata,cl=trres,k=val)
+ GetAccuracy1<-confusionMatrix(tstres,knn_req)
+Accuracyvector1<-c(Accuracyvector1,GetAccuracy1$overall[1])
+}
+plot(seq,Accuracyvector1,xlab="Values of K",ylab="Accuracy", type="l")
+
+
+
+#I am extracting the top 20 schools based on student performance and feedback
+sorteddata<-arrange(merged.data, desc(sum))
+sorteddata<-sorteddata[1:20,]
+View(sorteddata)
+
+
+
+
+#I am plot graph of school performance based on student data. I have graded them as A,
+sortedDt<-arrange(merged.data, desc(sum))
+sortedDt <- sortedDt[,c(1,17)]
+View(sortedDt)
+
+q<-data.frame()
+test<- c("Grade A",(sqldf("Select count(sum)as score from sortedDt where sum>96.0")))
+asdf<-data.frame(test)
+colnames(asdf)[1] <- "Type"
+q = rbind(q,asdf)
+
+test<- c("Grade B",(sqldf("Select count(sum)as score from sortedDt where sum between 72.1 and 96.0")))
+asdf<-data.frame(test)
+colnames(asdf)[1] <- "Type"
+q = rbind(q,asdf)
+
+
+test<- c("Grade C",(sqldf("Select count(sum)as score from sortedDt where sum between 48.1 and 72.0")))
+asdf<-data.frame(test)
+colnames(asdf)[1] <- "Type"
+q = rbind(q,asdf)
+
+test<- c("Grade D",(sqldf("Select count(sum)as score from sortedDt where sum between 24.1 and 48.0")))
+asdf<-data.frame(test)
+colnames(asdf)[1] <- "Type"
+q = rbind(q,asdf)
+
+test<- c("Grade F",(sqldf("Select count(sum)as score from sortedDt where sum<24.1")))
+asdf<-data.frame(test)
+colnames(asdf)[1] <- "Type"
+q = rbind(q,asdf)
+
+View(q)
+
+slices <- q$score 
+lbls <- c("A:","B:","C:","D:","F:")
+lbls <- paste(lbls,slices,sep="")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct, sep = " ") # add percents to labels 
+lbls <- paste(lbls,"%",sep="")# ad % to labels 
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+  	main="Pie Chart of School Scores")
+
+
+
+```
+
+```{r}
+
+#Count of students enrolled differentiated on the basis of race
+
+avgDF<- read.xlsx("C:/Users/akank/Desktop/data.xlsx",startRow = 2)
+View(avgDF)
+avgDF = avgDF[, c(2,4,32,33,34,35)]
+avgDF[is.na(avgDF)] <- 0
+View(avgDF)
+#calculating the number of students of each race based on the percentage. Rounded off the decimal values to the nearest integer. This gave the approximate values for each race.
+avgDF$Percent.Asian<-round(avgDF$Percent.Asian*avgDF$Enrollment)
+avgDF$Percent.Black<-round(avgDF$Percent.Black*avgDF$Enrollment)
+avgDF$Percent.Hispanic<-round(avgDF$Percent.Hispanic*avgDF$Enrollment)
+avgDF$Percent.White<-round(avgDF$Percent.White*avgDF$Enrollment)
+#Calculating the total Asians, Blacks, Hispanics and Whites enrolled in high school for the year 2015
+
+totaldf <- data.frame(race = character(), students_enrolled= integer(0))
+totaldf <-rbind(totaldf, data.frame(race = factor("Asian"), students_enrolled=sum(avgDF$Percent.Asian)))
+totaldf <-rbind(totaldf, data.frame(race = factor("Black"), students_enrolled=sum(avgDF$Percent.Black)))
+totaldf <-rbind(totaldf, data.frame(race = factor("Hispanic"), students_enrolled=sum(avgDF$Percent.Hispanic)))
+totaldf <-rbind(totaldf, data.frame(race = factor("White"), students_enrolled=sum(avgDF$Percent.White)))
+View(totaldf)
+
+barplot(totaldf$students_enrolled,main="Enrollment count of different races ",xlab="Race",ylab="Students Enrolled in 2015",names.arg=c("Asian","Black","Hispanic","White"), col=topo.colors(12))
+
+```
+#Task2:Scores for the top schools in NYC for different majors.
+#Here I have used the 5th sheet of the csv file we are using.Here I need to first show the first 15 top values for the schools for the different subjects that are taken in schools. For example: The subjects that are taken in high school are Physics, Chemistry, US history, Global History and Earth Science. So the first process what I have done is I have taken the best 15 schools for individual subjects of interest like Physics, Chemistry, US history, Global History and Earth Science.
+
+```{r}
+dataframeMAjor <- read.xlsx("C:/Users/akank/Desktop/data.xlsx", sheet=5)
+colnames(dataframeMAjor) = dataframeMAjor[1, ]
+dfMajor <- data.frame(dataframeMAjor)
+View(dataframeMAjor)
+dataframeMAjor = dataframeMAjor[-1,]
+
+require(data.table)
+
+#Top 15 schools for the subject Algebra
+alg<-sort(dataframeMAjor$`Average Score Regents Algebra`,decreasing = T)
+alg
+dataframeMAjor[dataframeMAjor$`Average Score Regents Algebra` %in% alg[1:15],]->alg15
+View(alg15)
+tablealg<-data.frame(alg15$`School Name`,alg15$`Average Score Regents Algebra`)
+View(tablealg)
+
+#Top 15 schools for the subject Geometry
+geom<-sort(dataframeMAjor$`Average Score Regents Geometry`,decreasing = T)
+geom
+dataframeMAjor[dataframeMAjor$`Average Score Regents Geometry` %in% geom[1:15],]->geommain
+View(geommain)
+tablegeo<-data.frame(geommain$`School Name`,geommain$`Average Score Regents Algebra`)
+View(tablegeo)
+
+#Top 15 schools for the subject US History
+ushis<-sort(dataframeMAjor$`Average Score Regents US History`,decreasing = T)
+ushis
+dataframeMAjor[dataframeMAjor$`Average Score Regents US History` %in% ushis[1:15],]->ushismain
+View(ushismain)
+tableushis<-data.frame(ushismain$`School Name`,ushismain$`Average Score Regents Algebra`)
+View(tableushis)
+
+#Top 15 schools for the subject Global History
+globhis<-sort(dataframeMAjor$`Average Score Regents Global History`,decreasing = T)
+globhis
+dataframeMAjor[dataframeMAjor$`Average Score Regents Global History` %in% globhis[1:15],]->globhismain
+View(globhismain)
+tableglobhis<-data.frame(globhismain$`School Name`,globhismain$`Average Score Regents Global History`)
+View(tableglobhis)
+
+#Top 15 schools for the subject Earth Science
+earths<-sort(dataframeMAjor$`Average Score Regents Earth Science`,decreasing = T)
+earths
+dataframeMAjor[dataframeMAjor$`Average Score Regents Earth Science` %in% earths[1:15],]->earthsmain
+View(earthsmain)
+tableearths<-data.frame(earthsmain$`School Name`,earthsmain$`Average Score Regents Earth Science`)
+View(tableearths)
+```
+
+
+
+
+#Now we arrive at the main part. We need to find out if a student is interested in a combination of the above given subjects which schools are good for him.If he is only interested in Maths so he will choose a Math Major, then he only needs to look at the quality of Algebra and Geometry. I have set the threshold as 75 for both Algebra nad Geometry for the Maths Major. In the similar way, I have done it for History Majors as well taking into account US History and Global History.
+
+
+```{r}
+newdataMaths <- dataframeMAjor[ which(dataframeMAjor$`Average Score Regents Algebra` > 75 & dataframeMAjor$`Average Score Regents Geometry` > 75), ]
+newdataMathsMain <- data.frame(newdataMaths$`School Name`,newdataMaths$`Average Score Regents Algebra`,newdataMaths$`Average Score Regents Geometry`)
+View(newdataMathsMain)
+
+newdataHistory <- dataframeMAjor[ which(dataframeMAjor$`Average Score Regents Global History` > 85 & dataframeMAjor$`Average Score Regents US History` > 85), ]
+newdataHistoryMain <- data.frame(newdataHistory$`School Name`,newdataHistory$`Average Score Regents Global History`,newdataHistory$`Average Score Regents US History`)
+View(newdataHistoryMain)
+
+newdataScience <- dataframeMAjor[ which(dataframeMAjor$`Average Score Regents Chemistry` > 75 & dataframeMAjor$`Average Score Regents Physics` > 75), ]
+newdataScienceMain <- data.frame(newdataScience$`School Name`,newdataScience$`Average Score Regents Chemistry`,newdataScience$`Average Score Regents Physics`)
+View(newdataScienceMain)
+```
+
+
+
+#After that we will be taking into account different customized majors maybe a student might be interested in that is like Science and Maths Major which will make him require the schools to be good in Algebra, Geometry, Physics and Chemistry. Also he can take a social sciences major which might make him take subjects like Earth Science, Global History and US History. Therefore I have covered almost all different majors that a student wishes to take up in the future and which schools are the best for that.
+```{r}
+newdataScienceMajor <- dataframeMAjor[ which(dataframeMAjor$`Average Score Regents Algebra` > 75 & dataframeMAjor$`Average Score Regents Geometry` > 75 & dataframeMAjor$`Average Score Regents Chemistry` > 75 & dataframeMAjor$`Average Score Regents Physics` > 75 ), ]
+newdataScienceMajorMain <- data.frame(newdataScienceMajor$`School Name`,newdataScienceMajor$`Average Score Regents Algebra`,newdataScienceMajor$`Average Score Regents Geometry`,newdataScienceMajor$`Average Score Regents Physics`,newdataScienceMajor$`Average Score Regents Chemistry`)
+View(newdataScienceMajorMain)
+
+newdataSocialSciencesMajor <- dataframeMAjor[ which(dataframeMAjor$`Average Score Regents US History` > 75 & dataframeMAjor$`Average Score Regents Global History` > 75 & dataframeMAjor$`Average Score Regents Earth Science` > 75), ]
+newdataSocialSciencesMajorMain <- data.frame(newdataSocialSciencesMajor$`School Name`,newdataSocialSciencesMajor$`Average Score Regents US History`,newdataSocialSciencesMajor$`Average Score Regents Global History`,newdataSocialSciencesMajor$`Average Score Regents Earth Science`)
+View(newdataSocialSciencesMajorMain)
+View(dataframeMAjor)
+
+```
+
+
+
+
+
+
